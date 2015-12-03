@@ -65,7 +65,7 @@ namespace Plant.Core
 
             var constructedObject = StrategyFor<T>() == CreationStrategy.Constructor
                 ? CreateViaConstructor<T>(userSpecifiedPropertyList)
-                : CreateViaProperties<T>(userSpecifiedPropertyList);
+                : CreateViaProperties<T>(userSpecifiedPropertyList, variation);
 
             // We should check if for the object properties we have a creation strategy and call create on that one.
             // Also if the property has a value, don't override.
@@ -81,8 +81,6 @@ namespace Plant.Core
 
                 prop.SetValue(constructedObject, value, null);
             }
-
-            UpdateProperties(constructedObject, variation);
 
             var bluePrintKey = BluePrintKey<T>(variation);
 
@@ -187,10 +185,13 @@ namespace Plant.Core
                 BluePrintCreated(this, e);
         }
 
-        private static Properties Merge(Properties defaults, Properties overrides)
+        private static Properties Merge(params Properties[] properties)
         {
-            return defaults.Keys.Union(overrides.Keys).ToDictionary(key => key,
-                                  key => overrides.ContainsKey(key) ? overrides[key] : defaults[key]);
+            return properties
+                .Where(p => p != null)
+                .SelectMany(p => p)
+                .GroupBy(p => p.Key.Name)
+                .ToDictionary(g => g.Last().Key, g => g.Last().Value);
         }
 
         private static T CreateInstanceWithEmptyConstructor<T>()
@@ -229,10 +230,19 @@ namespace Plant.Core
             instanceProperty.SetValue(instance, lazyProperty.Func.DynamicInvoke(), null);
         }
 
-        private T CreateViaProperties<T>(Properties userProperties)
+        private T CreateViaProperties<T>(Properties userProperties, string variation)
         {
+            Properties defaultProperties;
+            Properties variationProperties;
+
+            _propertyBlueprints.TryGetValue(typeof(T), out defaultProperties);
+            _propertyVariations.TryGetValue(BluePrintKey<T>(variation), out variationProperties);
+            
+            var properties = Merge(defaultProperties, variationProperties, userProperties);
+            
             var instance = CreateInstanceWithEmptyConstructor<T>();
-            SetProperties(Merge(_propertyBlueprints[typeof(T)], userProperties), instance);
+            SetProperties(properties, instance);
+
             return instance;
         }
 
@@ -270,14 +280,6 @@ namespace Plant.Core
         {
             if (obj == null) return new Dictionary<PropertyData, object>();
             return obj.GetType().GetProperties().ToDictionary(prop => new PropertyData(prop), prop => prop.GetValue(obj, null));
-        }
-
-        private void UpdateProperties<T>(T constructedObject, string variation)
-        {
-            if (string.IsNullOrEmpty(variation))
-                return;
-
-            SetProperties(_propertyVariations[BluePrintKey<T>(variation)], constructedObject);
         }
 
         private CreationStrategy StrategyFor<T>()

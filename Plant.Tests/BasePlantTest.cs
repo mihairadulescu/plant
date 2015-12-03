@@ -112,6 +112,48 @@ namespace Plant.Tests
         }
 
         [Test]
+        public void Create_WhenDefaultHasLazyPropertyOverwrittenByVariation_DoesNotInvokeDefaultLazyProperty()
+        {
+            var plant = new BasePlant();
+            const string variationName = "Self";
+            var wasDefaultLazyPropertyAssigned = false;
+            plant.DefinePropertiesOf<Person>(new
+            {
+                FirstName = new LazyProperty<string>(() =>
+                {
+                    wasDefaultLazyPropertyAssigned = true;
+                    return "default";
+                })
+            });
+            plant.DefineVariationOf<Person>(variationName, new { FirstName = "overwritten" });
+
+            plant.Create<Person>(variationName);
+
+            Assert.IsFalse(wasDefaultLazyPropertyAssigned);
+        }
+
+        [Test]
+        public void Create_WhenVariationHasLazyPropertyOverwrittenByUser_DoesNotInvokeVariationLazyProperty()
+        {
+            var plant = new BasePlant();
+            const string variationName = "Self";
+            var wasVariantLazyPropertyAssigned = false;
+            plant.DefinePropertiesOf<Person>(new { FirstName = "default" });
+            plant.DefineVariationOf<Person>(variationName, new
+            {
+                FirstName = new LazyProperty<string>(() =>
+                {
+                    wasVariantLazyPropertyAssigned = true;
+                    return "overwritten";
+                })
+            });
+
+            plant.Create<Person>(new { FirstName = "UserDefined" }, variationName);
+
+            Assert.IsFalse(wasVariantLazyPropertyAssigned);
+        }
+
+        [Test]
         public void Should_Create_Instance_Of_Specified_Type()
         {
             var plant = new BasePlant();
