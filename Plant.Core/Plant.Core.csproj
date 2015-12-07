@@ -41,6 +41,8 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="BasePlant.cs" />
+    <Compile Include="BluePrintCreatedEventHandler.cs" />
+    <Compile Include="BluePrintEventArgs.cs" />
     <Compile Include="IBlueprint.cs" />
     <Compile Include="CreationStrategy.cs" />
     <Compile Include="PropertyData.cs" />
